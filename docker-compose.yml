@@ -1,0 +1,13 @@
+version: "3"
+services:
+  cpp_playground:
+    build:
+      context: .
+    volumes:
+      - .:/cpp_playground
+    networks:
+      - cpp_playground
+    tty: true
+networks:
+  cpp_playground:
+    driver: bridge

@@ -1,0 +1,6 @@
+{
+  "name": "cpp_playground",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "cpp_playground",
+  "workspaceFolder": "/cpp_playground"
+}

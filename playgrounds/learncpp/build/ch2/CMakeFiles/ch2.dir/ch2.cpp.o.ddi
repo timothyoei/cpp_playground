@@ -1,0 +1,11 @@
+{
+"rules": [
+{
+"primary-output": "ch2/CMakeFiles/ch2.dir/ch2.cpp.o",
+"requires": [
+]
+}
+],
+"version": 0,
+"revision": 0
+}
