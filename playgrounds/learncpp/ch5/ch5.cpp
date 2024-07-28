@@ -1,6 +1,6 @@
 #include "ch5.h"
 
-void constants() {
+void ch5() {
   // Constant variable cannot change values
   // Don't use const when passing by value -> copy destroyed anyway
   // Don't use const when returning by value
@@ -40,7 +40,7 @@ void constants() {
   // Lower-case L can look like a 1 in some fonts
   const int sidesInCircle{0l};
 
-  // C-style string
+  // C-style string literals
   // - implicit null terminator (i.e., '\0') used to determine end of string
   // - const objects created at program start and guaranteed to exist for entirety of program
   const char helloWorld[14] = "Hello, world!";
@@ -58,9 +58,9 @@ void constants() {
   const int twelveInDecimal{12};
 
   // I/O manipulators change output format until another manipulator is applied
-  std::cout << std::oct << twelveInOctal << "\n";
-  std::cout << std::hex << twelveInHexadecimal << "\n";
-  std::cout << std::dec << twelveInDecimal << "\n";
+  std::cout << std::oct << twelveInOctal << '\n';
+  std::cout << std::hex << twelveInHexadecimal << '\n';
+  std::cout << std::dec << twelveInDecimal << '\n';
   // No binary I/O manipulator -> use below workarounds
   std::cout << std::format("{:b}\n", twelveInBinary);  // C++20, {:b} formats the argument as binary digits
   std::cout << std::format("{:#b}\n", twelveInBinary); // C++20, {:#b} formats the argument as 0b-prefixed binary digits
@@ -92,16 +92,90 @@ void constants() {
   // Optimization can make programs harder to debug -> code no longer resembles source code / debugger can't find symbols that exist in source code but not in optimized code
 
   // constexpr vars are always compile-time constants and work for both integral / non-integral types
-  // - prefer constexpr vars over const integral vars
-  // - use constexpr vars instead of magic numbers
-  // - compile-time constants should be declared constexpr while runtime constants should be declared const
-  // - some types are not compatible with constexpr (e.g., std::string, std::vector, etc) -> either use const or a different type that is constexpr compatible
-  // - constexpr object can be evaluated at runtime (sometimes) or compile-time (usually) <- very confusing I know
-  //  * normal function calls initialize parameters at runtime -> compile-time constants treated as runtime constants
-  // - const constexpr is redundant
+  // - prefer constexpr vars over const integral vars and magic numbers
+  // - compile-time constants should be declared `constexpr` while runtime constants should be declared `const`
+  // - some types are not compatible with `constexpr` (e.g., `std::string`, `std::vector`, etc) -> either use `const` or a different type that is `constexpr` compatible (e.g., `std::string_view`)
+  // - `constexpr` object evaluated at either compile-time (usually) or runtime (e.g., function call initializing param with `constexpr` argument at runtime)
+  // - `constexpr` is implicitly `const` but `const` is not implicitly `constexpr`
+
+  // C-style string vars are hard to use
+  // - no reassignment
+  // - UB if assigning larger string to var previously storing smaller string
+
+  // Prefer `std::string` over C-style string vars
+  // - `std::string` initialization makes a copy of the initializing string -> copying strings is expensive, unlike fundamental types
+  // - if `std::string` doesn't have enough memory to store a string, it requests more at runtime (dynamic memory allocation)
+  // - avoid passing a `std::string` by value -> use `std::string_view` instead
+  //   * function param initialized with copy of initializer
+  // - avoid returning a `std::string` by value
+  //   * can sometimes return `std::string` by (const) reference, avoiding a copy
+  //   * can sometimes return `std::string` by value when return expression reolves to:
+  //     * local variable of type `std::string`
+  //     * `std::string` returned by value from another function call or operator
+  //     * `std::string` temporary that is created as part of return statement
+  // - `std::string` supports move semantics
+  std::string name{"Timothy"};
+
+  // Prefer '\n' over "\n" and `std::endl`;
+  std::cout << name << '\n';
+
+  // `>>` op stops at first non-leading whitespace in `std::cin`
+  // - `std::getline()` gets whole line
+  //  * if using `std::getline()`, also use `std::cin >> std::ws` to ignore leading whitespace (`std::ws` not preserved across calls)
+  std::getline(std::cin >> std::ws, name);
+
+  // `std::string::length()` (`size_t`) or `std::ssize` (`std::ptrdiff_t`) to get string length
+  std::cout << name.length() << " " << std::ssize(name) << '\n';
+
+  using namespace std::string_literals // s suffix
+  // initializing `std::string` with C-style string literal is ok, but `std::string` literals can help type deduction (e.g., auto)
+  name = "John"s // `std::string("John", 4)` <- excludes null-terminator
+
+  // `std::string_view` read-only access to an existing string (e.g., C-style string, `std::string`, `std::string_view`) without making copies
+  // - C-style strings and `std::string` implicitly convert to `std::string_view`, but not other way around
+  // - prefer `std::string_view` over `std::string` when you need a read-only string, especially for function parameters
+  std::string_view strView1{"Hello"}; // initialization with C-style string
+  std::string_view strView2{"Hello\n"s}; // initialization with `std::string`
+  std::string_view strView3{strView2}; // initialization `std::string_view`
+
+  // C-style strings and `std::string` implicitly convert to `std::string_view`, but must explicitly convert `std::string_view` to `std::string`, either by initialization or `static_cast`
+  std::string stdStrFromStrView{strView1};
+  std::string stdStrFromStrView2{static_cast<std::string>(strView1)};
+
+  // Assignment changes what `std::string_view` is viewing
+
+  // Initialize with C-style string literals or `std::string_view` literal (uses C-style string under the hood)
+  std::string_view strViewLit{"Hello\n"sv};
+
+  // Support for `constexpr`
+  constexpr std::string_view kStrView{"Hello again\n"};
+
+  // If object being viewed is destroyed OR modified while view is still being used, UB results -> dangling view
+  // - do not initialize `std::string_view` with `std::string` literal
+  // - modifying a `std::string` invalides all views into that `std::string`
+  {
+    std::string s{"Hello"};
+    std::string_view sv{s};
+
+    s = "Hello again"; // sv invalidated
+    sv = s; // sv revalidated
+  }
+
+  // Prefer `std::string_view` over `const std::string&` function params in most cases
+
+  // If argument is a temporary that is destroyed at end of full expression containing function call, returned std::string_view must be used immediately, as it will be dangling afterward
+
+  // Modify view of string
+  // - must reassign view to source string to reset
+  kStrView.remove_prefix(1); // "ello again"
+  kStrView.remove_suffix(2); // ello aga"
+
+  // C-style string literals / `std::string` always null-terminated while a `std::string_view` may or may not be null-terminated (e.g., after modifying view)
+  // - usually doesn't matter -> can still convert `std::string_view` to `std::string`
+  // - if a null-terminated string is needed, convert `std::string_view` to `std::string` 
 }
 
 int main() {
-  constants();
+  ch5();
   return 0;
 }
